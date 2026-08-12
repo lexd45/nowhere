@@ -1,0 +1,7 @@
+restoration-env/
+data/
+checkpoints/*.pt
+checkpoints/*.pth
+outputs/
+__pycache__/
+*.pyc
