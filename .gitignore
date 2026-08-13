@@ -5,3 +5,4 @@ checkpoints/*.pth
 outputs/
 __pycache__/
 *.pyc
+checkpoints_v2/*.pt
