@@ -12,21 +12,27 @@ Degraded images: (128, 128), float32, range roughly [-0.05, 1.4]
 """
 
 import os
+import random
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 
 
 class PairedRestorationDataset(Dataset):
-    def __init__(self, gt_dir, degraded_dir, filenames):
+    def __init__(self, gt_dir, degraded_dir, filenames, augment=False):
         """
         gt_dir, degraded_dir : folder paths
         filenames            : list of filenames (e.g. ['000000.npy', ...])
                                 shared between both folders for this split
+        augment               : if True, applies random horizontal/vertical flips
+                                (identically to both gt and degraded) to increase
+                                effective data diversity. Use for TRAINING only --
+                                never set True for validation/test datasets.
         """
         self.gt_dir = gt_dir
         self.degraded_dir = degraded_dir
         self.filenames = filenames
+        self.augment = augment
 
     def __len__(self):
         return len(self.filenames)
@@ -36,6 +42,14 @@ class PairedRestorationDataset(Dataset):
 
         gt = np.load(os.path.join(self.gt_dir, fname)).astype(np.float32)
         degraded = np.load(os.path.join(self.degraded_dir, fname)).astype(np.float32)
+
+        if self.augment:
+            if random.random() < 0.5:
+                gt = np.flip(gt, axis=1).copy()
+                degraded = np.flip(degraded, axis=1).copy()
+            if random.random() < 0.5:
+                gt = np.flip(gt, axis=0).copy()
+                degraded = np.flip(degraded, axis=0).copy()
 
         # Add channel dimension: (H,W) -> (1,H,W), required by PyTorch conv layers
         gt_tensor = torch.from_numpy(gt).unsqueeze(0)

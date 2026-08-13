@@ -1,8 +1,8 @@
 restoration-env/
 data/
-checkpoints/*.pt
-checkpoints/*.pth
+checkpoints*/*.pt
+checkpoints*/*.pth
 outputs/
 __pycache__/
 *.pyc
-checkpoints_v2/*.pt
+.DS_Store

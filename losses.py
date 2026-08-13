@@ -76,6 +76,7 @@ class CombinedLoss(nn.Module):
         self.perceptual = VGGPerceptualLoss(device) if w_perceptual > 0 else None
 
     def forward(self, pred, target):
+        pred = torch.clamp(pred, 0.0, 1.0)  # match evaluate.py's clipping so training optimizes what's actually measured
         l1 = self.l1(pred, target)
         ssim_l = ssim_loss(pred, target) if self.w_ssim > 0 else torch.tensor(0.0, device=pred.device)
         perc = self.perceptual(pred, target) if self.perceptual is not None else torch.tensor(0.0, device=pred.device)

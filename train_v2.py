@@ -85,6 +85,8 @@ def train(args):
         checkpoint = torch.load(resume_path, map_location=device)
         model.load_state_dict(checkpoint["model_state_dict"])
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        if "scheduler_state_dict" in checkpoint:
+            scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
         start_epoch = checkpoint["epoch"] + 1
         best_val_loss = checkpoint.get("val_loss", float("inf"))
         print(f"Resuming at epoch {start_epoch}, best_val_loss so far: {best_val_loss:.4f}")
@@ -156,6 +158,7 @@ def train(args):
             "epoch": epoch,
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
+            "scheduler_state_dict": scheduler.state_dict(),
             "val_loss": val_loss,
             "base_ch": args.base_ch,
         }
