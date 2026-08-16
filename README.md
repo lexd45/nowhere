@@ -29,7 +29,17 @@ During inference, the script automatically applies 8-way Test-Time Augmentation 
 **⚠️ Important Note for Evaluators:** You do **NOT** need to train the model. We have already trained the model and provided the champion weights (`checkpoints/best_model.pt`) directly in this repository. You can evaluate the model immediately out-of-the-box.
 
 ### 1. Installation
-We recommend using a Python virtual environment to avoid dependency conflicts. Run these commands to clone the repository and install the dependencies (PyTorch, NumPy, scikit-image, and OpenCV):
+
+**Option A: Normal Installation (Quick)**
+If you just want to install the dependencies globally:
+```bash
+git clone https://github.com/lexd45/semi-hack.git
+cd semi-hack
+pip install -r requirements.txt
+```
+
+**Option B: Virtual Environment (Recommended)**
+To avoid any dependency conflicts on your system, we highly recommend using a virtual environment:
 ```bash
 git clone https://github.com/lexd45/semi-hack.git
 cd semi-hack
