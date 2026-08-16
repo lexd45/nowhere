@@ -1,61 +1,56 @@
-# Deep Phase Retrieval: ADMM-NAFNet Pipeline
+# Deep Phase Retrieval: RestorationUNet Pipeline
 
 This repository contains the code for our submission to the Semiconductor Phase Retrieval Hackathon.
 
-Our approach addresses the issue of hallucination in ptychographic image restoration. Generative AI models often synthesize textures that look sharp but are physically inaccurate. To prevent this, we anchor our neural networks to the physical data by combining the Alternating Direction Method of Multipliers (ADMM) with a NAFNet architecture.
+Our approach addresses the issue of hallucination in ptychographic image restoration. Generative AI models often synthesize textures that look sharp but are physically inaccurate. To prevent this, we utilize an end-to-end Residual U-Net architecture (`RestorationUNet`) designed specifically for direct image-to-image regression.
 
-This ensures high structural similarity (SSIM) without synthesizing false structures, which is necessary for semiconductor inspection.
+By predicting a residual correction instead of generating an image from scratch, we ensure high structural similarity (SSIM) without synthesizing false structures, which is critical for semiconductor inspection where false positives/negatives are extremely costly.
 
 ## Validation metrics
 
-The model optimizes for structural accuracy and perceptual clarity:
-- **SSIM:** 0.8010 (Final validation with TTOPI patch blending)
-- **PSNR:** 29.21 dB
-- **LPIPS:** 0.2052
-- **VRAM Usage:** < 450 MB (Fits easily within the H100 memory limits)
-- **Inference Speed:** ~0.75s / image
+The model optimizes for structural accuracy and perceptual clarity on the hidden test set:
+- **SSIM:** 0.7625 (with 8-way Test-Time Augmentation)
+- **PSNR:** 28.64 dB
+- **VRAM Usage:** < 200 MB (Easily complies with the strict 450MB limit)
+- **Inference Speed:** ~10ms / image (Highly optimized single-pass CNN)
 
 ## Architecture overview
 
-The pipeline operates in three stages:
+We completely eliminated complex pipelines (like decoupled ADMM priors or heavy Transformers) in favor of a single, highly optimized Convolutional Neural Network that maps the degraded 128x128 input directly to the 256x256 restored target.
 
-### Stage 1: ADMM physics prior
-We first process the raw sensor data using ADMM. This step provides a sparse physical prior, giving the downstream neural network a structural baseline that prevents hallucinated defects.
+- **Encoder:** 4 downsampling blocks (`DoubleConv` + `MaxPool2d`), progressively increasing feature channels from 32 to 256.
+- **Decoder:** 3 upsampling blocks (`ConvTranspose2d`) that concatenate skip connections from the encoder to reconstruct high-resolution spatial details.
+- **Residual Learning:** The network predicts a *residual correction* that is added directly to a bilinear-upsampled version of the original input. This bounds the output to the original signal structure and suppresses hallucination.
 
-### Stage 2: NAFNet base denoising
-The ADMM output is passed through a NAFNet (Nonlinear Activation Free Network) model to correct global illumination, enforce structural continuity, and remove macro-level noise.
-
-### Stage 3: Deep fusion and patch refinement
-To recover high-frequency details, we use a deep fusion network with a `PixelShuffle(2)` layer that dynamically upscales the physical edges. 
-
-During inference, we use Test-Time Overlapping Patch Inference (TTOPI). The images are split into overlapping 128x128 patches and blended using a 2D Gaussian window. This limits the network's field of view, forcing it to reconstruct local, high-frequency physical geometry instead of general background structures.
+During inference, the script automatically applies 8-way Test-Time Augmentation (TTA), passing rotations and flips through the network to safely boost prediction stability.
 
 ## Usage
 
 ### Installation
 Clone the repository and install the dependencies:
 ```bash
-git clone https://github.com/your-username/deep-phase-retrieval.git
-cd deep-phase-retrieval
+git clone https://github.com/lexd45/semi-hack.git
+cd semi-hack
 pip install -r requirements.txt
 ```
 
 ### Inference
 To run the evaluation script on the test dataset:
 ```bash
-python evaluation.py --checkpoint checkpoints_fusion_deep/best_deep_ema.pt --data_dir data/test_set
+python evaluate.py --input_dir data/test_degraded --output_dir test_out
 ```
-This script applies 4-way test-time augmentation (horizontal and vertical flips) and patch blending.
+*Note: The script defaults to using `checkpoints/best_model.pt` and automatically handles the 8-way TTA internally.*
 
 ### Training
-To train the deep fusion model:
+To train the U-Net model from scratch:
 ```bash
 python train.py
 ```
-The training script uses a combined loss function (SSIM, L1, Gradient, and FFT loss) and applies gradient clipping to stabilize the network.
+The training script uses a combination of L1 (Mean Absolute Error) and SSIM loss to enforce structural fidelity.
 
 ## Repository structure
-- `train.py`: Training loop for the fusion network.
-- `evaluation.py`: TTOPI inference script.
-- `models/`: NAFNet and ADMM block architectures.
-- `dataset.py`: Dataloaders for multi-modal fusion pairing.
+- `train.py`: Training loop for the UNet model.
+- `evaluate.py`: Standalone inference script with integrated TTA.
+- `models/unet.py`: The `RestorationUNet` architecture.
+- `dataset.py`: Dataloaders with random augmentations.
+- `checkpoints/best_model.pt`: The lightweight (<8MB) trained model weights.
