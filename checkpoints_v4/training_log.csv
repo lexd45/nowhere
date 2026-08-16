@@ -1,3 +1,0 @@
-epoch,train_loss,train_l1,train_ssim_loss,train_perceptual,val_loss,lr,time_seconds
-1,2.250662,0.256880,0.862063,1.041991,2.039444,0.000025,63.7
-2,1.940891,0.207013,0.804913,1.009147,1.864039,0.000000,62.8

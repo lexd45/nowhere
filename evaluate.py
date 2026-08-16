@@ -39,11 +39,22 @@ def load_model(checkpoint_path, device):
     return model
 
 
-def restore_image(model, degraded_np, device):
+def restore_image(model, degraded_np, device, use_tta=True):
     """degraded_np: (H,W) float32 -> returns (H,W) float32, clipped to [0,1]"""
     x = torch.from_numpy(degraded_np.astype(np.float32)).unsqueeze(0).unsqueeze(0).to(device)
     with torch.no_grad():
-        pred = model(x)
+        if use_tta:
+            preds = []
+            for k in range(4):
+                rot_x = torch.rot90(x, k, [2, 3])
+                out1 = model(rot_x)
+                out2 = model(torch.flip(rot_x, [3]))
+                out1_inv = torch.rot90(out1, -k, [2, 3])
+                out2_inv = torch.rot90(torch.flip(out2, [3]), -k, [2, 3])
+                preds.extend([out1_inv, out2_inv])
+            pred = torch.mean(torch.stack(preds), dim=0)
+        else:
+            pred = model(x)
     pred_np = pred.squeeze().cpu().numpy()
     pred_np = np.clip(pred_np, 0.0, 1.0)
     return pred_np
