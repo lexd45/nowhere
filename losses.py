@@ -1,14 +1,14 @@
 """
 Combined loss function for Phase Retrieval in Semiconductor Inspection.
 
-KLA Reviewers: We found that using standard L1 or MSE (L2) loss completely destroyed the structural 
+KLA Reviewers: We found that using standard L1 or MSE (L2) loss completely destroyed the structural
 integrity of the semiconductor traces. MSE is a per-pixel average that rewards "safe", blurry predictions.
-In a fab, a blurry trace is functionally useless for defect detection. 
+In a fab, a blurry trace is functionally useless for defect detection.
 
 We engineered this Combined Loss to strictly enforce physical geometry:
   - SSIM loss: Directly optimizes the structural geometry of the contacts and traces.
   - Gradient loss: Forces sharp, realistic lithography edges instead of soft gradients.
-  - FFT loss: Evaluates the frequency domain. Nanometer-scale defects live in the high frequencies, 
+  - FFT loss: Evaluates the frequency domain. Nanometer-scale defects live in the high frequencies,
               so this guarantees they aren't smoothed away by the CNN.
 """
 
@@ -47,7 +47,7 @@ def ssim_loss(pred, target, window_size=11, sigma=1.5, C1=0.01 ** 2, C2=0.03 ** 
 def gradient_loss(pred, target):
     """
     KLA Reviewers: This compares image gradients (edge strength) between the prediction and target.
-    Since EUV lithography traces require extremely sharp binarized-like edges, any blur 
+    Since EUV lithography traces require extremely sharp binarized-like edges, any blur
     introduced by the CNN is penalized heavily here.
     """
     sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]],
@@ -109,7 +109,7 @@ class FFTLoss(nn.Module):
     """
     def __init__(self):
         super().__init__()
-    
+
     def forward(self, pred, target):
         pred_fft = torch.fft.rfft2(pred, norm='ortho')
         target_fft = torch.fft.rfft2(target, norm='ortho')
@@ -124,7 +124,7 @@ class CombinedLoss(nn.Module):
                            instead of raw L1. Off by default so existing configs/
                            weight tuning are unaffected until you explicitly opt in
                            and bracket-test it against your current winning run.
-        use_mse         : if True, completely overrides the w_l1 term to use purely MSE (L2) 
+        use_mse         : if True, completely overrides the w_l1 term to use purely MSE (L2)
                            loss instead of L1/Charbonnier, maximizing PSNR.
         """
         super().__init__()

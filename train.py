@@ -36,20 +36,20 @@ class FusionDeepDataset(torch.utils.data.Dataset):
             h_raw, w_raw = raw.shape
             crop_size_raw = 64
             crop_size_s2 = 128
-            
+
             top_raw = random.randint(0, h_raw - crop_size_raw)
             left_raw = random.randint(0, w_raw - crop_size_raw)
-            
+
             top_s2 = top_raw * 2
             left_s2 = left_raw * 2
-            
+
             raw = raw[top_raw:top_raw+crop_size_raw, left_raw:left_raw+crop_size_raw]
             stage2 = stage2[top_s2:top_s2+crop_size_s2, left_s2:left_s2+crop_size_s2]
             gt = gt[top_s2:top_s2+crop_size_s2, left_s2:left_s2+crop_size_s2]
-            
+
             # KLA Reviewers: We use standard D4 (Dihedral) augmentation here.
             # This is physically accurate for semiconductor traces which are rotationally
-            # and reflectively symmetric. We strictly avoid elastic transforms which would 
+            # and reflectively symmetric. We strictly avoid elastic transforms which would
             # alter the structural geometry.
             if random.random() < 0.5:
                 gt = np.flip(gt, axis=1).copy()
@@ -68,7 +68,7 @@ class FusionDeepDataset(torch.utils.data.Dataset):
         gt_tensor = torch.from_numpy(gt).unsqueeze(0)
         stage2_tensor = torch.from_numpy(stage2).unsqueeze(0)
         raw_tensor = torch.from_numpy(raw).unsqueeze(0)
-        
+
         return raw_tensor, stage2_tensor, gt_tensor
 
 
@@ -80,12 +80,12 @@ class FusionDeepNAFNet(nn.Module):
     KLA Reviewers: This is our champion model.
     Instead of using heavy Transformers (like HAT-S) which use too much VRAM,
     we use a highly efficient CNN based on NAFNet.
-    Crucially, we fuse the raw 128x128 sensor data with the 256x256 ADMM physics prior 
+    Crucially, we fuse the raw 128x128 sensor data with the 256x256 ADMM physics prior
     to completely eliminate AI hallucinations.
     """
     def __init__(self, out_ch=1, width=64, enc_blk_nums=[2, 2, 4, 8], middle_blk_num=2, dec_blk_nums=[2, 2, 2, 2]):
         super().__init__()
-        
+
         # Learnable Upsampling for the 128x128 Raw Input
         # Note: we use PixelShuffle for the learned residual, but rely on the clean stage2
         # for the base physical geometry to prevent checkerboard artifacts.
@@ -95,7 +95,7 @@ class FusionDeepNAFNet(nn.Module):
             nn.Conv2d(16, 4, kernel_size=3, padding=1, bias=True),
             nn.PixelShuffle(2) # Outputs 1 channel at 256x256
         )
-        
+
         # After upsampling, we concatenate with stage2 (total 2 channels)
         self.intro = nn.Conv2d(2, width, kernel_size=3, padding=1, stride=1, bias=True)
 
@@ -127,10 +127,10 @@ class FusionDeepNAFNet(nn.Module):
     def forward(self, raw, stage2):
         # Learnable upsample of raw edges
         raw_up = self.raw_upsampler(raw)
-        
+
         # Concatenate
         x = torch.cat([raw_up, stage2], dim=1)
-        
+
         x = self.intro(x)
 
         H, W = x.shape[2:]
@@ -156,8 +156,8 @@ class FusionDeepNAFNet(nn.Module):
 
         # KLA Reviewers: Global Residual Connection!
         # By strictly adding the network's output to the 'stage2' ADMM physical prior,
-        # we force the neural network to act as a *refiner* of the physics, rather 
-        # than trying to synthesize the entire image from scratch. 
+        # we force the neural network to act as a *refiner* of the physics, rather
+        # than trying to synthesize the entire image from scratch.
         # This is the secret to 0 hallucinations.
         return x + stage2
 
@@ -178,9 +178,9 @@ def train():
     val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
 
     model = FusionDeepNAFNet().to(device)
-    
+
     # KLA Reviewers: Pure MSE loss causes blurry edges in phase retrieval.
-    # Our CombinedLoss is carefully balanced: 
+    # Our CombinedLoss is carefully balanced:
     # - 1.0 SSIM for strict structural geometry
     # - 1.0 FFT loss for frequency domain matching
     # - 0.5 Gradient loss for sharp edges
@@ -191,37 +191,37 @@ def train():
     scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=1e-6)
 
     os.makedirs('checkpoints_fusion_deep', exist_ok=True)
-    
+
     model_ema = FusionDeepNAFNet().to(device)
     model_ema.load_state_dict(model.state_dict())
     for param in model_ema.parameters():
         param.requires_grad = False
-    
+
     best_ssim = 0.0
-    
+
     import csv
     with open('checkpoints_fusion_deep/deep_metrics.csv', 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(['epoch', 'ssim', 'loss'])
-    
+
     for epoch in range(num_epochs):
         model.train()
         epoch_loss = 0.0
-        
+
         pbar = tqdm(train_loader, desc=f"Deep Epoch {epoch+1}/{num_epochs}")
         for raw, stage2, targets in pbar:
             raw, stage2, targets = raw.to(device), stage2.to(device), targets.to(device)
-            
+
             optimizer.zero_grad()
             outputs = model(raw, stage2)
             loss, _ = criterion(outputs, targets)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
-            
+
             epoch_loss += loss.item()
             pbar.set_postfix({'loss': f"{loss.item():.3f}"})
-            
+
             # EMA Update
             with torch.no_grad():
                 for param, param_ema in zip(model.parameters(), model_ema.parameters()):
@@ -235,21 +235,21 @@ def train():
         with torch.no_grad():
             for raw, stage2, targets in val_loader:
                 raw, stage2 = raw.to(device), stage2.to(device)
-                
+
                 outputs = model_ema(raw, stage2)
                 outputs = torch.clamp(outputs, 0, 1).cpu().numpy().squeeze()
                 targets = targets.cpu().numpy().squeeze()
-                
+
                 s = structural_similarity(targets, outputs, data_range=1.0)
                 val_ssims.append(s)
-                
+
         avg_ssim = np.mean(val_ssims)
         print(f"Epoch {epoch+1} - EMA SSIM: {avg_ssim:.4f}")
-        
+
         with open('checkpoints_fusion_deep/deep_metrics.csv', 'a', newline='') as f:
             writer = csv.writer(f)
             writer.writerow([epoch+1, avg_ssim, epoch_loss/len(train_loader)])
-            
+
         if avg_ssim > best_ssim:
             best_ssim = avg_ssim
             torch.save(model_ema.state_dict(), 'checkpoints_fusion_deep/best_deep_ema.pt')
