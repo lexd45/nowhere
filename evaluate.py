@@ -4,6 +4,7 @@ import os
 import time
 
 import numpy as np
+import cv2
 import torch
 from skimage.metrics import peak_signal_noise_ratio as psnr_metric
 from skimage.metrics import structural_similarity as ssim_metric
@@ -55,6 +56,8 @@ def main(args):
         degraded_np = np.load(args.image_path).astype(np.float32)
         restored_np = restore_image(model, degraded_np, device)
         np.save(out_path, restored_np)
+        png_path = os.path.splitext(out_path)[0] + ".png"
+        cv2.imwrite(png_path, (restored_np * 255).astype(np.uint8))
         print(f"Processed single image: {args.image_path}")
         print(f"Restored output saved to: {out_path}")
         return
@@ -85,7 +88,10 @@ def main(args):
         degraded_np = np.load(os.path.join(args.input_dir, fname)).astype(np.float32)
         restored_np = restore_image(model, degraded_np, device)
 
-        np.save(os.path.join(args.output_dir, fname), restored_np)
+        out_npy = os.path.join(args.output_dir, fname)
+        np.save(out_npy, restored_np)
+        out_png = os.path.splitext(out_npy)[0] + ".png"
+        cv2.imwrite(out_png, (restored_np * 255).astype(np.uint8))
 
         if compute_metrics:
             gt_np = np.load(os.path.join(args.gt_dir, fname)).astype(np.float32)
