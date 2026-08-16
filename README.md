@@ -24,29 +24,30 @@ We completely eliminated complex pipelines (like decoupled ADMM priors or heavy 
 
 During inference, the script automatically applies 8-way Test-Time Augmentation (TTA), passing rotations and flips through the network to safely boost prediction stability.
 
-## Usage
+## Usage (For Judges / Evaluators)
 
-### Installation
-Clone the repository and install the dependencies:
+**⚠️ Important Note for Evaluators:** You do **NOT** need to train the model. We have already trained the model and provided the champion weights (`checkpoints/best_model.pt`) directly in this repository. You can evaluate the model immediately out-of-the-box.
+
+### 1. Installation
+Clone the repository and install the dependencies (only PyTorch, NumPy, scikit-image, and OpenCV are required):
 ```bash
 git clone https://github.com/lexd45/semi-hack.git
 cd semi-hack
 pip install -r requirements.txt
 ```
 
-### Inference
-To run the evaluation script on the test dataset:
+### 2. Run Evaluation (Inference)
+To restore a specific test image provided by KLA, run the evaluation script and replace `<path_to_image.npy>` with the actual path to your degraded `.npy` image file:
 ```bash
-python evaluate.py --input_dir data/test_degraded --output_dir test_out
+python evaluate.py --image_path <path_to_image.npy>
 ```
-*Note: The script defaults to using `checkpoints/best_model.pt` and automatically handles the 8-way TTA internally.*
 
-### Training
-To train the U-Net model from scratch:
+To evaluate an entire directory of test images at once, run:
 ```bash
-python train.py
+python evaluate.py --input_dir <path_to_directory> --output_dir <path_to_save_outputs>
 ```
-The training script uses a combination of L1 (Mean Absolute Error) and SSIM loss to enforce structural fidelity.
+
+*Note: The script automatically loads our pre-trained `best_model.pt` weights and handles the 8-way Test-Time Augmentation (TTA) internally. It will restore the image(s) in a fraction of a second.*
 
 ## Repository structure
 - `train.py`: Training loop for the UNet model.
