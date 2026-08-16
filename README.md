@@ -37,14 +37,14 @@ pip install -r requirements.txt
 ```
 
 ### 2. Run Evaluation (Inference)
-To restore a specific test image provided by KLA, run the evaluation script and replace `<path_to_image.npy>` with the actual path to your degraded `.npy` image file:
+To restore a specific test image provided by KLA, run the evaluation script and replace `path/to/image.npy` with the actual path to your degraded `.npy` image file:
 ```bash
-python evaluate.py --image_path <path_to_image.npy>
+python evaluate.py --image_path "path/to/image.npy"
 ```
 
 To evaluate an entire directory of test images at once, run:
 ```bash
-python evaluate.py --input_dir <path_to_directory> --output_dir <path_to_save_outputs>
+python evaluate.py --input_dir "path/to/directory" --output_dir "path/to/save_outputs"
 ```
 
 *Note: The script automatically loads our pre-trained `best_model.pt` weights and handles the 8-way Test-Time Augmentation (TTA) internally. It will restore the image(s) in a fraction of a second.*
