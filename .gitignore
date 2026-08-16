@@ -1,8 +1,9 @@
-restoration-env/
 data/
-checkpoints*/*.pt
-checkpoints*/*.pth
-outputs/
 __pycache__/
 *.pyc
 .DS_Store
+
+restoration-env/
+
+restoration-env/
+
