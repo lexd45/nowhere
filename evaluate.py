@@ -1,20 +1,3 @@
-"""
-Standalone evaluation / inference script for the KLA restoration task.
-
-REQUIRED USAGE (must run unmodified, as specified in the hackathon brief):
-    python evaluate.py --input_dir <path_to_degraded_npy_folder> --output_dir <path_to_save_restored_npy>
-
-OPTIONAL — if ground truth is available, also computes and prints PSNR/SSIM/LPIPS:
-    python evaluate.py --input_dir data/degraded --output_dir outputs/val_restored --gt_dir data/gt --val_only
-
---val_only restricts evaluation to the same held-out validation filenames used during
-training (never seen by the model), so metrics reflect real generalization, not
-memorized training data. Use this for your own results reporting.
-
-For the actual held-out test set (no ground truth available), run WITHOUT --val_only
-and WITHOUT --gt_dir:
-    python evaluate.py --input_dir data/test_degraded --output_dir outputs/test_restored
-"""
 
 import argparse
 import os
@@ -29,7 +12,6 @@ import lpips
 from models.unet import RestorationUNet
 from dataset import get_train_val_filenames
 
-
 def load_model(checkpoint_path, device):
     checkpoint = torch.load(checkpoint_path, map_location=device)
     base_ch = checkpoint.get("base_ch", 32)
@@ -38,9 +20,8 @@ def load_model(checkpoint_path, device):
     model.eval()
     return model
 
-
 def restore_image(model, degraded_np, device, use_tta=True):
-    """degraded_np: (H,W) float32 -> returns (H,W) float32, clipped to [0,1]"""
+    
     x = torch.from_numpy(degraded_np.astype(np.float32)).unsqueeze(0).unsqueeze(0).to(device)
     with torch.no_grad():
         if use_tta:
@@ -58,7 +39,6 @@ def restore_image(model, degraded_np, device, use_tta=True):
     pred_np = pred.squeeze().cpu().numpy()
     pred_np = np.clip(pred_np, 0.0, 1.0)
     return pred_np
-
 
 def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -115,7 +95,7 @@ def main(args):
 
             gt_t = torch.from_numpy(gt_np).unsqueeze(0).unsqueeze(0).repeat(1, 3, 1, 1).to(device)
             pred_t = torch.from_numpy(restored_np).unsqueeze(0).unsqueeze(0).repeat(1, 3, 1, 1).to(device)
-            gt_t = gt_t * 2 - 1     # [0,1] -> [-1,1], required by LPIPS
+            gt_t = gt_t * 2 - 1
             pred_t = pred_t * 2 - 1
             with torch.no_grad():
                 l = lpips_model(pred_t, gt_t).item()
@@ -142,7 +122,6 @@ def main(args):
             for fname, p, s, l in per_image_records:
                 f.write(f"{fname},{p:.4f},{s:.4f},{l:.4f}\n")
         print(f"Per-image metrics saved to: {metrics_path}")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -12,9 +12,6 @@ from losses import CombinedLoss
 from skimage.metrics import structural_similarity
 from models.nafnet import NAFBlock
 
-# ==============================================================================
-# Fusion Refiner Deep Dataset Loader
-# ==============================================================================
 class FusionDeepDataset(torch.utils.data.Dataset):
     def __init__(self, gt_dir, stage2_dir, raw_dir, filenames, augment=False):
         self.gt_dir = gt_dir
@@ -47,10 +44,6 @@ class FusionDeepDataset(torch.utils.data.Dataset):
             stage2 = stage2[top_s2:top_s2+crop_size_s2, left_s2:left_s2+crop_size_s2]
             gt = gt[top_s2:top_s2+crop_size_s2, left_s2:left_s2+crop_size_s2]
 
-            # KLA Reviewers: We use standard D4 (Dihedral) augmentation here.
-            # This is physically accurate for semiconductor traces which are rotationally
-            # and reflectively symmetric. We strictly avoid elastic transforms which would
-            # alter the structural geometry.
             if random.random() < 0.5:
                 gt = np.flip(gt, axis=1).copy()
                 stage2 = np.flip(stage2, axis=1).copy()
@@ -71,24 +64,11 @@ class FusionDeepDataset(torch.utils.data.Dataset):
 
         return raw_tensor, stage2_tensor, gt_tensor
 
-
-# ==============================================================================
-# Deep Fusion Architecture (Learnable Upsampling)
-# ==============================================================================
 class FusionDeepNAFNet(nn.Module):
-    """
-    KLA Reviewers: This is our champion model.
-    Instead of using heavy Transformers (like HAT-S) which use too much VRAM,
-    we use a highly efficient CNN based on NAFNet.
-    Crucially, we fuse the raw 128x128 sensor data with the 256x256 ADMM physics prior
-    to completely eliminate AI hallucinations.
-    """
+    
     def __init__(self, out_ch=1, width=64, enc_blk_nums=[2, 2, 4, 8], middle_blk_num=2, dec_blk_nums=[2, 2, 2, 2]):
         super().__init__()
 
-        # Learnable Upsampling for the 128x128 Raw Input
-        # Note: we use PixelShuffle for the learned residual, but rely on the clean stage2
-        # for the base physical geometry to prevent checkerboard artifacts.
         self.raw_upsampler = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=3, padding=1, bias=True),
             nn.GELU(),
@@ -96,7 +76,6 @@ class FusionDeepNAFNet(nn.Module):
             nn.PixelShuffle(2) # Outputs 1 channel at 256x256
         )
 
-        # After upsampling, we concatenate with stage2 (total 2 channels)
         self.intro = nn.Conv2d(2, width, kernel_size=3, padding=1, stride=1, bias=True)
 
         self.encoders = nn.ModuleList()
@@ -125,10 +104,8 @@ class FusionDeepNAFNet(nn.Module):
         self.ending = nn.Conv2d(width, out_ch, kernel_size=1, padding=0, stride=1, bias=True)
 
     def forward(self, raw, stage2):
-        # Learnable upsample of raw edges
         raw_up = self.raw_upsampler(raw)
 
-        # Concatenate
         x = torch.cat([raw_up, stage2], dim=1)
 
         x = self.intro(x)
@@ -154,16 +131,8 @@ class FusionDeepNAFNet(nn.Module):
         x = self.ending(x)
         x = x[:, :, :H, :W]
 
-        # KLA Reviewers: Global Residual Connection!
-        # By strictly adding the network's output to the 'stage2' ADMM physical prior,
-        # we force the neural network to act as a *refiner* of the physics, rather
-        # than trying to synthesize the entire image from scratch.
-        # This is the secret to 0 hallucinations.
         return x + stage2
 
-# ==============================================================================
-# Training Loop
-# ==============================================================================
 def train():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Training Deep Fusion Refiner on device: {device}")
@@ -173,18 +142,11 @@ def train():
     train_dataset = FusionDeepDataset("data/admm_full/gt", "data/admm_full/stage2_output", "data/degraded", train_files, augment=True)
     val_dataset = FusionDeepDataset("data/admm_full/gt", "data/admm_full/stage2_output", "data/degraded", val_files, augment=False)
 
-    # Batch size slightly smaller due to increased network capacity
     train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, num_workers=2, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
 
     model = FusionDeepNAFNet().to(device)
 
-    # KLA Reviewers: Pure MSE loss causes blurry edges in phase retrieval.
-    # Our CombinedLoss is carefully balanced:
-    # - 1.0 SSIM for strict structural geometry
-    # - 1.0 FFT loss for frequency domain matching
-    # - 0.5 Gradient loss for sharp edges
-    # - 0.1 L1 loss for baseline intensity
     criterion = CombinedLoss(device, w_l1=0.1, w_ssim=1.0, w_gradient=0.5, w_fft=1.0).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=2e-4, weight_decay=1e-4)
     num_epochs = 50
@@ -222,14 +184,12 @@ def train():
             epoch_loss += loss.item()
             pbar.set_postfix({'loss': f"{loss.item():.3f}"})
 
-            # EMA Update
             with torch.no_grad():
                 for param, param_ema in zip(model.parameters(), model_ema.parameters()):
                     param_ema.data.mul_(0.999).add_(param.data, alpha=0.001)
 
         scheduler.step()
 
-        # Validation
         model_ema.eval()
         val_ssims = []
         with torch.no_grad():
