@@ -29,22 +29,31 @@ During inference, the script automatically applies 8-way Test-Time Augmentation 
 **⚠️ Important Note for Evaluators:** You do **NOT** need to train the model. We have already trained the model and provided the champion weights (`checkpoints/best_model.pt`) directly in this repository. You can evaluate the model immediately out-of-the-box.
 
 ### 1. Installation
-Clone the repository and install the dependencies (only PyTorch, NumPy, scikit-image, and OpenCV are required):
+We recommend using a Python virtual environment to avoid dependency conflicts. Run these commands to clone the repository and install the dependencies (PyTorch, NumPy, scikit-image, and OpenCV):
 ```bash
 git clone https://github.com/lexd45/semi-hack.git
 cd semi-hack
+
+# Create and activate a virtual environment
+python -m venv env
+# On Windows:
+env\Scripts\activate
+# On macOS/Linux:
+source env/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
 ### 2. Run Evaluation (Inference)
-To restore a specific test image provided by KLA, run the evaluation script and replace `path/to/image.npy` with the actual path to your degraded `.npy` image file:
+To restore a test image, you must replace `"YOUR_TEST_IMAGE.npy"` with the actual path to the KLA degraded `.npy` image file on your computer:
 ```bash
-python evaluate.py --image_path "path/to/image.npy"
+python evaluate.py --image_path "YOUR_TEST_IMAGE.npy"
 ```
 
-To evaluate an entire directory of test images at once, run:
+To evaluate an entire directory of test images at once (replace `"YOUR_TEST_DIRECTORY"` and `"OUTPUT_DIRECTORY"` with your actual paths):
 ```bash
-python evaluate.py --input_dir "path/to/directory" --output_dir "path/to/save_outputs"
+python evaluate.py --input_dir "YOUR_TEST_DIRECTORY" --output_dir "OUTPUT_DIRECTORY"
 ```
 
 *Note: The script automatically loads our pre-trained `best_model.pt` weights and handles the 8-way Test-Time Augmentation (TTA) internally. It will restore the image(s) in a fraction of a second.*
