@@ -1,6 +1,6 @@
 # Deep Phase Retrieval: RestorationUNet Pipeline
 
-This repository contains the code for our submission to the Semiconductor Phase Retrieval Hackathon.
+This repository contains the code for our submission to the Semicon India Hackathon 2026.
 
 Our approach addresses the issue of hallucination in ptychographic image restoration. Generative AI models often synthesize textures that look sharp but are physically inaccurate. To prevent this, we utilize an end-to-end Residual U-Net architecture (`RestorationUNet`) designed specifically for direct image-to-image regression.
 
