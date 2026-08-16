@@ -67,6 +67,18 @@ def main(args):
     model = load_model(args.checkpoint, device)
     print(f"Loaded model from {args.checkpoint}")
 
+    if args.image_path:
+        out_path = args.output_path
+        if not out_path:
+            base, ext = os.path.splitext(args.image_path)
+            out_path = base + "_restored" + ext
+        degraded_np = np.load(args.image_path).astype(np.float32)
+        restored_np = restore_image(model, degraded_np, device)
+        np.save(out_path, restored_np)
+        print(f"Processed single image: {args.image_path}")
+        print(f"Restored output saved to: {out_path}")
+        return
+
     os.makedirs(args.output_dir, exist_ok=True)
 
     if args.val_only:
@@ -134,13 +146,18 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input_dir", type=str, required=True, help="Folder of degraded .npy images")
-    parser.add_argument("--output_dir", type=str, required=True, help="Folder to save restored .npy images")
+    parser.add_argument("--input_dir", type=str, required=False, help="Folder of degraded .npy images")
+    parser.add_argument("--output_dir", type=str, required=False, help="Folder to save restored .npy images")
+    parser.add_argument("--image_path", type=str, required=False, help="Path to a single degraded .npy image")
+    parser.add_argument("--output_path", type=str, required=False, help="Path to save the single restored .npy image")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/best_model.pt")
     parser.add_argument("--gt_dir", type=str, default=None, help="Optional: enables PSNR/SSIM/LPIPS computation")
     parser.add_argument("--val_only", action="store_true", help="Evaluate only on held-out validation split")
     parser.add_argument("--val_fraction", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
+
+    if not args.image_path and not (args.input_dir and args.output_dir):
+        parser.error("You must provide either --image_path OR both --input_dir and --output_dir")
 
     main(args)
