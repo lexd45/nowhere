@@ -56,21 +56,16 @@ pip install -r requirements.txt
 ```
 
 ### 2. Run Evaluation (Inference)
-To restore a test image, you must replace `"YOUR_TEST_IMAGE.npy"` with the actual path to the KLA degraded `.npy` image file on your computer:
+To restore a directory of test images, run the following command (replace `<input-dir>` and `<output-dir>` with your actual folder paths):
 ```bash
-python evaluate.py --image_path "YOUR_TEST_IMAGE.npy"
+python run.py <input-dir> <output-dir>
 ```
 
-To evaluate an entire directory of test images at once (replace `"YOUR_TEST_DIRECTORY"` and `"OUTPUT_DIRECTORY"` with your actual paths):
-```bash
-python evaluate.py --input_dir "YOUR_TEST_DIRECTORY" --output_dir "OUTPUT_DIRECTORY"
-```
-
-*Note: The script automatically loads our pre-trained `best_model.pt` weights and handles the 8-way Test-Time Augmentation (TTA) internally. It will restore the image(s) in a fraction of a second.*
+*Note: The script automatically loads our pre-trained `best_model.pt` weights and handles the 8-way Test-Time Augmentation (TTA) internally. It will restore the images in a fraction of a second and save them to the specified output directory as `.npy` arrays.*
 
 ## Repository structure
 - `train.py`: Training loop for the UNet model.
-- `evaluate.py`: Standalone inference script with integrated TTA.
+- `run.py`: Standalone inference script with integrated TTA (Official Hackathon Entry Point).
 - `models/unet.py`: The `RestorationUNet` architecture.
 - `dataset.py`: Dataloaders with random augmentations.
 - `checkpoints/best_model.pt`: The lightweight (<8MB) trained model weights.
